@@ -4,6 +4,8 @@ Based on this original script: https://gist.github.com/bem13/596ec5f341aaaefbabc
 
 requires the requests library (`pip install requests`)
 
+[**Go To Model Tags**](https://github.com/BetaDoggo/danbooru-tag-list/releases/tag/Model-Tags)
+
 Main Changes:
 - Allows setting minimum post threshold
 - Allows '-' format (found to be better for prompt following)
@@ -11,8 +13,9 @@ Main Changes:
 - Uses the UI's expected formatting
 - Slightly faster rate limit
 - Ability to exclude tag categories
-- The option to include aliases (UI support varies)
+- aliases (UI support varies) (danbooru aliases only)
 - supports pulling tags from e621 (optional)
+- supports setting a cutoff date (applies to danbooru only)
 
 About the uploaded lists:
 

@@ -96,7 +96,7 @@ def get_aliases(url,type):
     # create alias dictionary
     try:
         aliases = collections.defaultdict(list)
-        for page in range(1,5):
+        for page in range(1,1001):
             # Update the URL with the current page
             url = f'{url}&page={page}'
             # Fetch the JSON data
@@ -127,7 +127,7 @@ def get_aliases(url,type):
 if "d" in boards:
     dan_tags = {}
     try:
-        for page in range(1, 5):
+        for page in range(1,1001):
             # Update the URL with the current page
             url = f'{base_url}&page={page}'
             # Fetch the JSON data
@@ -162,7 +162,7 @@ if "d" in boards:
 if "e" in boards:
     e6_tags = {}
     try:
-        for page in range(1, 2):
+        for page in range(1,1001):
             # Update the URL with the current page
             url = f'{e6_base_url}&page={page}'
             # Fetch the JSON data
@@ -189,7 +189,7 @@ if "e" in boards:
     except Complete:
         print(f'All tags with {minimum_count} posts or greater have been scraped.')
 
-# e6 tags are fucked, a proper solution would take ~10 hours per list and I'm not going that far for furries
+# e6 tags are fucked, a proper solution would take ~10 hours to run per list and I'm not going that far for furries
 #if "e" in boards:
 #    e6_aliases = get_aliases(e6_alias_url, "e")
 #    backdate(e6_tags,e6_aliases,max_date)

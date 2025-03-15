@@ -25,3 +25,15 @@ The format is as follows:
 
 |tag|category|post count|aliases(if enabled)|
 |---|--------|----------|-----------------------------------------|
+
+# Use with common UIs
+## SwarmUI
+Place one of the lists in the `SwarmUI\Data\Autocompletions` folder then select the list in `User->User Settings`. The other settings are up to personal preference.
+![image](https://github.com/user-attachments/assets/9a61237a-4f3c-4f45-befd-a02c0bf15a73)
+## ComfyUI
+Install the [ComfyUI-Custom-Scripts](https://github.com/pythongosssss/ComfyUI-Custom-Scripts) node pack then [follow the instructions here for getting the correct link to add the list](https://github.com/BetaDoggo/danbooru-tag-list/tree/tag-lists)
+## Krita-AI-Diffusion
+Go to the interface section of the plugin's settings page then click the folder icon to open the folder where you need to place the lists.
+![image](https://github.com/user-attachments/assets/a1e63387-1dd7-49c1-8040-4d9474f3b3ed)
+## Stable-Diffusion-webui / Forge / Reforge
+Install the [a1111-sd-webui-tagcomplete](https://github.com/DominikDoom/a1111-sd-webui-tagcomplete) extension then place the tag file in the `a1111-sd-webui-tagcomplete/tags` folder. You then need to change the list used in the extension settings.

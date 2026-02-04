@@ -9,10 +9,12 @@ class Complete(Exception): pass
 
 csv_filename = input('Output filename: ')
 minimum_count = input('Minimum tag count (> 50 is preferable): ')
-dashes = input('replace \'_\' with \'-\'? (often better for prompt following) (Y/n): ')
+dashes = input('replace \'_\' with \'-\'? (some sdxl based models work better this way) (Y/n): ')
+ats = input('Add an \'@\' to artist names? (used by anima and some other models) (y/N): ')
 exclude = input('enter categories to exclude: (general,artist,copyright,character,post) (press enter for none): \n')
 boards = input('Enter boards to scrape danbooru(d), e621(e), both(de) (default: danbooru): ')
-date = input('Enter cutoff date. ex: 2024-09-03 for september 3rd 2024: ')
+date = input('Enter cutoff date (for aliases). ex: 2024-09-03 for september 3rd 2024: ')
+
 try:
     max_date =  datetime.datetime.strptime(date.strip()[:10], "%Y-%m-%d")
     print(f"Using date: {max_date}")
@@ -45,6 +47,9 @@ if not 'n' in dashes.lower():
 
 if not minimum_count.isdigit():
     minimum_count = 50
+
+if not 'y' in ats.lower():
+    ats = 'n'
 
 # Base URLs without the page parameter
 base_url = 'https://danbooru.donmai.us/tags.json?limit=1000&search[hide_empty]=yes&search[is_deprecated]=no&search[order]=count'
@@ -189,12 +194,6 @@ if "e" in boards:
     except Complete:
         print(f'All tags with {minimum_count} posts or greater have been scraped.')
 
-# e6 tags are fucked, a proper solution would take ~10 hours to run per list and I'm not going that far for furries
-#if "e" in boards:
-#    e6_aliases = get_aliases(e6_alias_url, "e")
-#    backdate(e6_tags,e6_aliases,max_date)
-
-
 # Merge boards
 if ("d" in boards) and ("e" in boards):
     for tag in dan_tags:
@@ -216,14 +215,23 @@ else:
 print("writing to file")
 with open(csv_filename, mode='w', newline='', encoding='utf-8') as file:
     writer = csv.writer(file)
-    # danbooru
-    # Write the data
     for key, value in full_tags.items():
         if not str(value[0]) in excluded:
+            tag_name = key
+            alias_string = ''
             try:
-                writer.writerow([key,value[0],value[1],value[3]])
+                alias_string = value[3]
             except:
-                writer.writerow([key,value[0],value[1],'']) #too lazy for a proper fix
+                pass
+            
+            if ats == 'y' and str(value[0]) == '1':
+                tag_name = '@' + key
+                if alias_string:
+                    aliases = alias_string.split(',')
+                    aliases = ['@' + alias for alias in aliases]
+                    alias_string = ','.join(aliases)
+            
+            writer.writerow([tag_name, value[0], value[1], alias_string])
     # Explicitly flush the data to the file
     file.close()
 
@@ -242,5 +250,6 @@ with open(csv_filename, mode='w', newline='', encoding='utf-8') as file:
             csvfile.close()
         os.remove(csv_filename)
         csv_filename = csv_filename.removesuffix('-temp')
+
 
 print(f'Data has been written to {csv_filename}', flush=True)

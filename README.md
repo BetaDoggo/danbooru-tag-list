@@ -6,7 +6,7 @@ requires the requests library (`pip install requests`)
 
 [**Go To Model Tags**](https://github.com/BetaDoggo/danbooru-tag-list/releases/tag/Model-Tags)
 
-I've also been running a daily scrape of the danbooru list for a potential personal project. You can find those lists here: https://github.com/BetaDoggo/Danbooru-Trends/tree/main/tags
+I've also been running a daily scrape of the danbooru list for a potential personal project. You can find those lists here: https://huggingface.co/datasets/HDiffusion/historical-danbooru-tag-counts/tree/main
 
 Main Changes:
 - Allows setting minimum post threshold

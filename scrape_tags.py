@@ -1,4 +1,6 @@
 import os
+import re
+import html
 import requests
 import collections
 import csv
@@ -12,7 +14,7 @@ minimum_count = input('Minimum tag count (> 50 is preferable): ')
 dashes = input('replace \'_\' with \'-\'? (some sdxl based models work better this way) (Y/n): ')
 ats = input('Add an \'@\' to artist names? (used by anima and some other models) (y/N): ')
 exclude = input('enter categories to exclude: (general,artist,copyright,character,post) (press enter for none): \n')
-boards = input('Enter boards to scrape danbooru(d), e621(e), both(de) (default: danbooru): ')
+boards = input('Enter boards to scrape danbooru(d), e621(e), gelbooru(g), or combinations like (deg) (default: danbooru): ')
 date = input('Enter cutoff date (for aliases). ex: 2024-09-03 for september 3rd 2024: ')
 
 try:
@@ -23,8 +25,21 @@ except:
     print(f"Using todays date: {max_date}")
 
 boards = boards.lower()
-if (not "d" in boards) and (not "e" in boards):
+if (not "d" in boards) and (not "e" in boards) and (not "g" in boards):
     boards = "d"
+
+# gelbooru requires an api key which requires an account, pray signups are active when you make one
+if "g" in boards:
+    print("Gelbooru selected. An API key + user id are required.")
+    print("On gelbooru.com, open My Account -> Account Options and copy the full")
+    print("'&api_key=...&user_id=...' string from the API Access section, then paste it below.")
+    while True:
+        raw = input('Paste your Gelbooru API credentials string: ').strip()
+        # normalize to exactly one leading '&' regardless of what was copied
+        gel_auth = '&' + raw.lstrip('&?').strip()
+        if 'api_key=' in gel_auth and 'user_id=' in gel_auth:
+            break
+        print("That doesn't look right (expected something like '&api_key=...&user_id=...'). Please try again.")
 
 excluded = ""
 excluded += "0" if "general" in exclude else ""
@@ -56,6 +71,10 @@ base_url = 'https://danbooru.donmai.us/tags.json?limit=1000&search[hide_empty]=y
 alias_url = 'https://danbooru.donmai.us/tag_aliases.json?commit=Search&limit=1000&search[order]=tag_count'
 e6_base_url = 'https://e621.net/tags.json?limit=1000&search[hide_empty]=yes&search[is_deprecated]=no&search[order]=count'
 e6_alias_url = 'https://e621.net/tag_aliases.json?commit=Search&limit=1000&search[order]=tag_count'
+# gel must be gated because of extra parameter
+if "g" in boards:
+    gel_base_url = ('https://gelbooru.com/index.php?page=dapi&s=tag&q=index&json=1'
+                    f'&limit=100&orderby=count{gel_auth}')
 
 session = requests.Session()
 
@@ -128,6 +147,40 @@ def get_aliases(url,type):
         print("reached the post threshold")
     return(aliases)
 
+
+def get_gel_aliases():
+    # gel doesn't provided aliases in the api so regular scraping is required
+    print("Scraping Gelbooru aliases from the web listing (50/page, ~460 pages)...")
+    aliases = collections.defaultdict(list)
+    pid = 0
+    while True:
+        url = f'https://gelbooru.com/index.php?page=alias&s=list&pid={pid}'
+        while True:
+            response = session.get(url, headers={"User-Agent": "tag-list/2.0"})
+            if response.status_code == 200:
+                break
+            print(f"Couldn't reach alias server, Status: {response.status_code}.\nRetrying in 5 seconds")
+            time.sleep(5)
+        # each alias is a <tr> containing the '&rarr;' arrow between two tag links:
+        # antecedent (links[0]) -> consequent (links[1])
+        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', response.text, re.S)
+        found = 0
+        for row in rows:
+            if 'rarr;' not in row:
+                continue
+            links = re.findall(r'page=post&amp;s=list&amp;tags=([^"&]+)', row)
+            if len(links) >= 2:
+                aliases[html.unescape(links[1])].append(html.unescape(links[0]))  # consequent -> [antecedents]
+                found += 1
+        if found == 0:
+            print(f'No more aliases at pid {pid}. Stopping.', flush=True)
+            break
+        if pid % 500 == 0:  # log every 10 pages
+            print(f'Gelbooru aliases: pid {pid} done ({sum(len(v) for v in aliases.values())} aliases so far).', flush=True)
+        pid += 50
+        time.sleep(1/3)  # ~3 req/s (gelbooru allows up to 10/s)
+    return aliases
+
 #######
 if "d" in boards:
     dan_tags = {}
@@ -194,22 +247,83 @@ if "e" in boards:
     except Complete:
         print(f'All tags with {minimum_count} posts or greater have been scraped.')
 
+if "g" in boards:
+    gel_tags = {}
+    # always drop gelbooru's invalid (2) and deprecated (6) categories
+    gel_excluded = excluded + '26'
+    pid = 0
+    try:
+        while True:  # gelbooru doesn't cap pid; we stop on the count threshold or an empty page
+            url = f'{gel_base_url}&pid={pid}'
+            while True:
+                response = session.get(url, headers={"User-Agent": "tag-list/2.0"})
+                if response.status_code == 200:
+                    break
+                if response.status_code in (401, 403):
+                    print(f"Gelbooru authentication failed (HTTP {response.status_code}). Check your API credentials. Skipping Gelbooru.")
+                    break
+                print(f"Couldn't reach server, Status: {response.status_code}.\nRetrying in 5 seconds")
+                time.sleep(5)
+            if response.status_code != 200:  # auth failed -> stop scraping gelbooru, keep what we have
+                break
+            try:
+                data = response.json()
+            except Exception:
+                print(f"Could not parse JSON for pid {pid}. Stopping.", flush=True)
+                break
+            # gelbooru wraps results in a 'tag' key (a lone match comes back as a dict)
+            if isinstance(data, dict):
+                items = data.get('tag', [])
+            else:
+                items = data
+            if isinstance(items, dict):
+                items = [items]
+            if not items:
+                print(f'No more data found at pid {pid}. Stopping.', flush=True)
+                break
+
+            for item in items:
+                if not item.get('name'):  # skip blank/garbage names (the all-time top entry is '')
+                    continue
+                if int(item['count']) < int(minimum_count):  # results are count-descending, so we're done
+                    raise Complete
+                if not str(item['type']) in gel_excluded:
+                    # gelbooru has no created_at; store '' so the shape matches the other boards
+                    gel_tags[item['name']] = [item['type'], int(item['count']), '']
+            print(f'Gelbooru pid {pid} processed.', flush=True)
+            pid += 1
+            time.sleep(1/8)  # ~8 req/s (gelbooru allows up to 10/s)
+    except Complete:
+        print(f'All tags with {minimum_count} posts or greater have been scraped.')
+
+if "g" in boards:
+    # Attach gelbooru aliases
+    gel_aliases = get_gel_aliases()
+    for consequent, antecedents in gel_aliases.items():
+        if consequent in gel_tags:
+            gel_tags[consequent].append(','.join(antecedents))
+
 # Merge boards
-if ("d" in boards) and ("e" in boards):
-    for tag in dan_tags:
-        if tag in e6_tags:
-            e6_tags[tag][1] += dan_tags[tag][1] # combined count
-            """if e6_tags[tag][2] != None and dan_tags[tag][2] != None:
-                if e6_tags[tag][2] == "":
-                    e6_tags[tag][2] += dan_tags[tag][2]  # aliases
-                else:
-                    e6_tags[tag][2] += "," + dan_tags[tag][2]"""
-    dan_tags.update(e6_tags)
-    full_tags = dan_tags
-elif "d" in boards:
-    full_tags = dan_tags
-else:
-    full_tags = e6_tags
+full_tags = {}
+if "d" in boards:
+    for tag, value in dan_tags.items():
+        full_tags[tag] = list(value)
+if "e" in boards:
+    for tag, value in e6_tags.items():
+        if tag in full_tags:
+            full_tags[tag][1] += value[1]      # combined count
+            full_tags[tag][0] = value[0]        # e6 wins category
+            full_tags[tag][2] = value[2]        # e6 wins created_at
+        else:
+            full_tags[tag] = list(value)
+if "g" in boards:
+    for tag, value in gel_tags.items():
+        if tag in full_tags:
+            full_tags[tag][1] += value[1]
+            full_tags[tag][0] = value[0]
+            full_tags[tag][2] = value[2]
+        else:
+            full_tags[tag] = list(value)
 
 # Open a file to write
 print("writing to file")

@@ -17,11 +17,12 @@ Main Changes:
 - Ability to exclude tag categories
 - aliases (UI support varies) (danbooru aliases only)
 - supports pulling tags from e621 (optional)
+- supports pulling tags from gelbooru (optional; requires a free API key)
 - supports setting a cutoff date (applies to danbooru only)
 
 About the uploaded lists:
 
-I've uploaded premade versions of every all-category list with the minimum threshold set to 50, and aliases enabled. Aliases are only currently supported for danbooru because e621 has way too many and some overlap with real danbooru tags. There's some half working commented out code that will also pull aliases from e621 which I might support for e621-only lists, but for now I don't want to look at any more furry art.
+I've uploaded premade versions of every all-category list with the minimum threshold set to 50, and aliases enabled. Aliases are only currently supported for danbooru because e621 has way too many and some overlap with real danbooru tags. There's some half working commented out code that will also pull aliases from e621 which I might support for e621-only lists, but for now I don't want to look at any more furry art. The alias rollback thing doesn't work with gel because I couldn't get the creation date (pulling aliases from gel is a workaround in and of itself)
 
 The format is as follows:
 
